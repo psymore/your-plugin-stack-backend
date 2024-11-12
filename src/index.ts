@@ -15,12 +15,6 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT),
 });
 
-console.log("DB_HOST", process.env.DB_HOST);
-console.log("DB_USER", process.env.DB_USER);
-console.log("DB_PASSWORD", process.env.DB_PASSWORD);
-console.log("DB_NAME", process.env.DB_NAME);
-console.log("DB_PORT", process.env.DB_PORT);
-
 app.use(express.json());
 
 app.get("/api", async (req, res) => {
@@ -33,7 +27,7 @@ app.get("/api", async (req, res) => {
   }
 });
 
-// Simple route to fetch all users from the "users" table
+// USER ROUTES
 app.get("/users", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM users");
@@ -52,6 +46,31 @@ app.post("/users", async (req, res) => {
       [name, email]
     );
     res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+//PLUGIN ROUTES
+app.post("/plugins", async (req, res) => {
+  const { plugin_name } = req.body;
+  try {
+    const result = await pool.query(
+      "INSERT INTO plugins (plugin_name) VALUES ($1) RETURNING *",
+      [plugin_name]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+app.get("/plugins", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM plugins");
+    res.status(200).json(result.rows);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Database error" });
