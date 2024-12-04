@@ -1,6 +1,5 @@
 import nodemailer from "nodemailer";
 
-// Send confirmation email
 export const sendConfirmationEmail = async (email: string, link: string) => {
   const transporter = nodemailer.createTransport({
     host: process.env.MAILER_HOST,
@@ -15,6 +14,9 @@ export const sendConfirmationEmail = async (email: string, link: string) => {
     from: process.env.MAILER_USER,
     to: email,
     subject: "Email Confirmation",
-    text: `Please confirm your email by clicking this link: ${link}`,
+    html: `
+    <h2>Email Confirmation</h2>
+    <p>Please confirm your email by clicking on the link below:</p>
+    <a href="${link}">Confirm Email</a>`,
   });
 };

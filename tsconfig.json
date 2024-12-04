@@ -7,5 +7,6 @@
     "esModuleInterop": true,
     "strict": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "typeRoots": ["src/typings/", "node_modules/@types/"]
 }
