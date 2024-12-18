@@ -1,52 +1,184 @@
-import { Request, Response } from "express";
-import { hashPassword, generateJWT } from "../services/authService";
-import { sendConfirmationEmail } from "../services/mailerService";
-import pool from "../config/db";
+import bcrypt from "bcrypt";
+import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { v4 as uuidv4 } from "uuid";
+import pool from "../config/db";
+import redisClient from "../config/redisClient";
+import { decodedJWT, generateJWT, hashPassword } from "../services/authService";
+import { sendConfirmationEmail } from "../services/mailerService";
+import { serialize } from "cookie";
 
-// User registration logic
-export const registerUser = async (req: Request, res: Response) => {
+// Register User
+export const registerUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const { name, email, password } = req.body;
 
   try {
-    const hashedPassword = await hashPassword(password);
-
-    const result = await pool.query(
-      "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *",
-      [name, email, hashedPassword]
+    // Check if the user already exists
+    const existingUser = await pool.query(
+      "SELECT * FROM users WHERE email = $1",
+      [email]
     );
 
-    const token = generateJWT({ id: result.rows[0].id, email });
+    if (existingUser.rows.length > 0) {
+      res.status(400).json({ error: "User already exists" });
+      return;
+    }
 
-    const confirmationLink = `http://localhost:3000/confirm-email?token=${token}`;
+    // Hash password
+    const hashedPassword = await hashPassword(password);
+
+    // Generate unique transaction ID for Redis
+    const transactionId = uuidv4();
+
+    // Store user info temporarily in Redis
+    await redisClient.set(
+      `transaction:${transactionId}`,
+      JSON.stringify({ name, email, password: hashedPassword }),
+      {
+        EX: 3600, // Set expiry to 1 hour (3600 seconds)
+      }
+    );
+
+    // Generate JWT with the transaction ID
+    const verificationToken = generateJWT({ transactionId });
+
+    const confirmationLink = `${process.env.FRONTEND_BASE_URL}/confirm-email?token=${verificationToken}`;
+
     await sendConfirmationEmail(email, confirmationLink);
 
-    res
-      .status(201)
-      .json({ message: "User registered, please confirm your email" });
-  } catch (err) {
-    console.error(err);
+    res.status(201).json({
+      message: "User registered. Please check your email for verification.",
+    });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
-// Confirm email logic
-export const confirmEmail = async (req: Request, res: Response) => {
+// Confirm Email
+export const confirmEmail = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { token } = req.query;
+
   try {
-    const decoded = jwt.verify(
-      token as string,
-      process.env.JWT_SECRET as string
-    );
-    const { email } = decoded as { email: string };
+    // Verify JWT and extract the transaction ID
+    const decoded = decodedJWT(token as string);
 
+    const transactionId = (decoded as jwt.JwtPayload).transactionId;
+
+    // Retrieve user data from Redis using the transaction ID
+    const userData = await redisClient.get(`transaction:${transactionId}`);
+
+    if (!userData) {
+      res.status(400).json({ error: "Invalid or expired token" });
+      return;
+    }
+
+    const { name, email, password } = JSON.parse(userData);
+
+    // Insert the user into the database with `is_verified = true`
     await pool.query(
-      "UPDATE users SET email_confirmed = true WHERE email = $1",
-      [email]
+      "INSERT INTO users (name, email, password, is_verified) VALUES ($1, $2, $3, true) RETURNING *",
+      [name, email, password]
     );
 
-    res.status(200).json({ message: "Email confirmed successfully" });
+    // Delete the transaction from Redis
+    await redisClient.del(`transaction:${transactionId}`);
+
+    res.status(200).json({ message: "Email verified successfully" });
   } catch (error) {
-    res.status(400).json({ error: "Invalid or expired token" });
+    console.error(error);
+    res.status(500).json({ error: "Invalid or expired token" });
+  }
+};
+
+// Login User (enhanced with Redis and Cookie-based JWT)
+export const loginUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const { email, password }: { email: string; password: string } = req.body;
+
+  try {
+    // Fetch user from the database
+    const result = await pool.query("SELECT * FROM users WHERE email = $1", [
+      email,
+    ]);
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const user = result.rows[0];
+
+    // Check if the email is verified
+    if (!user.is_verified) {
+      res.status(403).json({ error: "Please verify your email first" });
+      return;
+    }
+
+    // Compare the password
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      res.status(401).json({ error: "Invalid password" });
+      return;
+    }
+
+    // Generate JWT
+    const token = generateJWT({ userId: user.id });
+
+    // Store the token in Redis with an expiry (optional)
+    await redisClient.set(token, user.id, { EX: 3600 }); // 1 hour expiration
+
+    // Set the JWT in HttpOnly cookie
+    const cookie = serialize("auth-token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 3600, // 1 hour
+      path: "/",
+    });
+
+    res.setHeader("Set-Cookie", cookie);
+
+    // Respond with success message
+    res.status(200).json({ message: "Login successful" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+
+  next();
+};
+
+// Logout User
+export const logoutUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const token = req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    res.status(401).json({ error: "No token provided" });
+    return;
+  }
+
+  try {
+    // Blacklist the token by storing it in Redis with a short expiry
+    await redisClient.set(token, "blacklisted", { EX: 3600 }); // 1 hour expiration
+
+    res.status(200).json({ message: "Logout successful" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };

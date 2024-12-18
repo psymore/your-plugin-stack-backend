@@ -2,7 +2,6 @@ import express from "express";
 import {
   getAllUsers,
   createUser,
-  registerUser,
   loginUser,
   verifyEmail,
 } from "../controllers/userController";
@@ -60,31 +59,6 @@ router.get("/", getAllUsers);
  *         description: Internal Server Error
  */
 router.post("/", createUser);
-
-/**
- * @swagger
- * /users/register:
- *   post:
- *     summary: Register a new user
- *     description: Register a new user with email and password
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       201:
- *         description: User registered successfully
- *       500:
- *         description: Internal Server Error
- */
-router.post("/register", registerUser);
 
 /**
  * @swagger

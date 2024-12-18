@@ -13,3 +13,7 @@ export const generateJWT = (payload: object) => {
     expiresIn: "1h",
   });
 };
+
+export const decodedJWT = (token: string) => {
+  return jwt.verify(token, process.env.JWT_SECRET as string);
+};

@@ -2,8 +2,6 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { NextFunction, Request, Response } from "express";
 import pool from "../config/db";
-import { sendConfirmationEmail } from "../services/mailerService";
-import { User } from "../models/user-model";
 
 // Get all users
 export const getAllUsers = async (
@@ -37,37 +35,6 @@ export const createUser = async (
   }
 };
 
-// Register User with email verification
-export const registerUser = async (req: Request, res: Response) => {
-  const { name, email, password } = req.body;
-
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Generate a verification token
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-
-    const result = await pool.query(
-      "INSERT INTO users (name, email, password, verification_token) VALUES ($1, $2, $3, $4) RETURNING *",
-      [name, email, hashedPassword, verificationToken]
-    );
-
-    const verificationLink = `${process.env.FRONTEND_BASE_URL}/verify-email?token=${verificationToken}`;
-
-    // Send confirmation email
-    await sendConfirmationEmail(email, verificationLink);
-
-    res.status(201).json({
-      message:
-        "User registered successfully. Please check your email for verification.",
-      user: result.rows[0],
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
-
 // Verify email
 export const verifyEmail = async (
   req: Request,
@@ -98,14 +65,13 @@ export const verifyEmail = async (
 export const loginUser = async (
   req: Request,
   res: Response,
-  next: NextFunction // Add next for middleware compatibility if needed
+  next: NextFunction
 ): Promise<void> => {
   const { email, password }: { email: string; password: string } = req.body;
   try {
-    const result = await pool.query<User>(
-      "SELECT * FROM users WHERE email = $1",
-      [email]
-    );
+    const result = await pool.query("SELECT * FROM users WHERE email = $1", [
+      email,
+    ]);
 
     if (result.rows.length === 0) {
       res.status(404).json({ error: "User not found" });
