@@ -1,9 +1,9 @@
 import express from "express";
 import {
-  getAllUsers,
   createUser,
-  loginUser,
-  verifyEmail,
+  deleteUser,
+  getAllUsers,
+  getUserById,
 } from "../controllers/userController";
 
 const router = express.Router();
@@ -62,55 +62,59 @@ router.post("/", createUser);
 
 /**
  * @swagger
- * /users/login:
- *   post:
- *     summary: Login a user
- *     description: Authenticate a user with email and password
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
+ * /users/{id}:
+ *   get:
+ *     summary: Get user by ID
+ *     description: Retrieve a user by their ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID of the user to retrieve
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
- *         description: Successfully logged in
- *       401:
- *         description: Invalid password
- *       403:
- *         description: Email not verified
+ *         description: Successfully retrieved user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 email:
+ *                   type: string
  *       404:
  *         description: User not found
  *       500:
  *         description: Internal Server Error
  */
-router.post("/login", loginUser);
+router.get("/:id", getUserById);
 
 /**
  * @swagger
- * /users/verify-email:
- *   get:
- *     summary: Verify user email
- *     description: Verify a user's email using a verification token
+ * /users/{id}:
+ *   delete:
+ *     summary: Delete a user by ID
+ *     description: Delete a user by their ID
  *     parameters:
- *       - name: token
- *         in: query
+ *       - in: path
+ *         name: id
  *         required: true
+ *         description: ID of the user to delete
  *         schema:
  *           type: string
  *     responses:
  *       200:
- *         description: Email verified successfully
- *       400:
- *         description: Invalid or expired token
+ *         description: User deleted successfully
+ *       404:
+ *         description: User not found
  *       500:
  *         description: Internal Server Error
  */
-router.get("/verify-email", verifyEmail);
+router.delete("/delete/:id", deleteUser);
 
 export default router;

@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import { serialize } from "cookie";
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
@@ -6,10 +7,10 @@ import pool from "../config/db";
 import redisClient from "../config/redisClient";
 import { decodedJWT, generateJWT, hashPassword } from "../services/authService";
 import { sendConfirmationEmail } from "../services/mailerService";
-import { serialize } from "cookie";
+import { prisma } from "../prisma";
 
 // Register User
-export const registerUser = async (
+export const register = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -18,12 +19,11 @@ export const registerUser = async (
 
   try {
     // Check if the user already exists
-    const existingUser = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
-      [email]
-    );
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
 
-    if (existingUser.rows.length > 0) {
+    if (existingUser) {
       res.status(400).json({ error: "User already exists" });
       return;
     }
@@ -48,13 +48,15 @@ export const registerUser = async (
 
     const confirmationLink = `${process.env.FRONTEND_BASE_URL}/confirm-email?token=${verificationToken}`;
 
+    // Send confirmation email with the verification link
     await sendConfirmationEmail(email, confirmationLink);
 
+    // Respond with success
     res.status(201).json({
       message: "User registered. Please check your email for verification.",
     });
   } catch (error) {
-    console.error(error);
+    console.error("Error registering user:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
@@ -69,7 +71,6 @@ export const confirmEmail = async (
   try {
     // Verify JWT and extract the transaction ID
     const decoded = decodedJWT(token as string);
-
     const transactionId = (decoded as jwt.JwtPayload).transactionId;
 
     // Retrieve user data from Redis using the transaction ID
@@ -83,15 +84,21 @@ export const confirmEmail = async (
     const { name, email, password } = JSON.parse(userData);
 
     // Insert the user into the database with `is_verified = true`
-    await pool.query(
-      "INSERT INTO users (name, email, password, is_verified) VALUES ($1, $2, $3, true) RETURNING *",
-      [name, email, password]
-    );
+    const newUser = await prisma.user.create({
+      data: {
+        name: "name",
+        email,
+        password,
+        is_verified: true,
+      },
+    });
 
     // Delete the transaction from Redis
     await redisClient.del(`transaction:${transactionId}`);
 
-    res.status(200).json({ message: "Email verified successfully" });
+    res
+      .status(200)
+      .json({ message: "Email verified successfully", user: newUser });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Invalid or expired token" });
@@ -99,7 +106,7 @@ export const confirmEmail = async (
 };
 
 // Login User (enhanced with Redis and Cookie-based JWT)
-export const loginUser = async (
+export const login = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -108,7 +115,7 @@ export const loginUser = async (
 
   try {
     // Fetch user from the database
-    const result = await pool.query("SELECT * FROM users WHERE email = $1", [
+    const result = await pool.query("SELECT * FROM user WHERE email = $1", [
       email,
     ]);
 
@@ -160,12 +167,9 @@ export const loginUser = async (
   next();
 };
 
-// Logout User
-export const logoutUser = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const token = req.headers.authorization?.split(" ")[1];
+// Logout
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  const token = req.cookies["auth-token"]; // Get token from cookies
 
   if (!token) {
     res.status(401).json({ error: "No token provided" });
@@ -175,6 +179,18 @@ export const logoutUser = async (
   try {
     // Blacklist the token by storing it in Redis with a short expiry
     await redisClient.set(token, "blacklisted", { EX: 3600 }); // 1 hour expiration
+
+    // Clear the cookie
+    res.setHeader(
+      "Set-Cookie",
+      serialize("auth-token", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 0, // Expire immediately
+        sameSite: "strict",
+        path: "/",
+      })
+    );
 
     res.status(200).json({ message: "Logout successful" });
   } catch (error) {

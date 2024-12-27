@@ -1,0 +1,55 @@
+generator client {
+    provider        = "prisma-client-js"
+    previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DB_URL")
+    schemas  = "public"
+}
+
+model User {
+    id          Int     @id @default(autoincrement())
+    name        String
+    email       String  @unique
+    password    String
+    is_verified Boolean @default(false)
+    stacks      Stack[] // A user can have multiple stacks
+
+    @@map("user")
+    @@schema(map: "public")
+}
+
+model Stack {
+    id      Int            @id @default(autoincrement())
+    name    String
+    userId  Int
+    user    User           @relation(fields: [userId], references: [id])
+    plugins StackPlugins[]
+
+    @@map("stack")
+    @@schema(map: "public")
+}
+
+model Plugin {
+    id         Int            @id @default(autoincrement())
+    pluginName String
+    stackItems StackPlugins[]
+
+    @@map("plugin")
+    @@schema(map: "public")
+}
+
+model StackPlugins {
+    id       Int    @id @default(autoincrement())
+    stackId  Int
+    stack    Stack  @relation(fields: [stackId], references: [id])
+    pluginId Int
+    plugin   Plugin @relation(fields: [pluginId], references: [id])
+    position Int // Optional: Keeps track of order of plugins in the stack
+
+    @@unique([stackId, pluginId, position]) // Allows a plugin to appear multiple times in the same stack
+    @@map("stack_plugins")
+    @@schema(map: "public")
+}

@@ -11,6 +11,7 @@ export const swaggerOptions = {
   },
   apis: [
     "./src/index.ts",
+    "./src/routes/authRoutes.ts",
     "./src/routes/userRoutes.ts",
     "./src/routes/pluginRoutes.ts",
   ], // Point to the correct path where your routes are defined

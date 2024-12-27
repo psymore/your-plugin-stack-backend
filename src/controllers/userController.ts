@@ -9,7 +9,8 @@ export const getAllUsers = async (
   res: Response
 ): Promise<void> => {
   try {
-    const result = await pool.query("SELECT * FROM users");
+    const result = await pool.query("SELECT * FROM user");
+    console.log("GET /users", result);
     res.status(200).json(result.rows);
   } catch (error) {
     console.error(error);
@@ -25,7 +26,7 @@ export const createUser = async (
   const { name, email } = req.body;
   try {
     const result = await pool.query(
-      "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *",
+      "INSERT INTO user (name, email) VALUES ($1, $2) RETURNING *",
       [name, email]
     );
     res.status(201).json(result.rows[0]);
@@ -35,68 +36,40 @@ export const createUser = async (
   }
 };
 
-// Verify email
-export const verifyEmail = async (
+export const getUserById = async (
   req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const { token } = req.query;
-
-  try {
-    const result = await pool.query(
-      "UPDATE users SET is_verified = true, verification_token = null WHERE verification_token = $1 RETURNING *",
-      [token]
-    );
-
-    if (result.rows.length === 0) {
-      res.status(400).json({ error: "Invalid or expired token" });
-      return;
-    }
-
-    res.status(200).json({ message: "Email verified successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
-
-// Login User with email verification check
-export const loginUser = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): Promise<void> => {
-  const { email, password }: { email: string; password: string } = req.body;
+  const { id } = req.params;
   try {
-    const result = await pool.query("SELECT * FROM users WHERE email = $1", [
-      email,
-    ]);
-
+    const result = await pool.query("SELECT * FROM user WHERE id = $1", [id]);
     if (result.rows.length === 0) {
       res.status(404).json({ error: "User not found" });
       return;
     }
-
-    const user = result.rows[0];
-
-    // Check if the email is verified
-    if (!user.is_verified) {
-      res.status(403).json({ error: "Please verify your email first" });
-      return;
-    }
-
-    const passwordMatch = await bcrypt.compare(password, user.password);
-
-    if (!passwordMatch) {
-      res.status(401).json({ error: "Invalid password" });
-      return;
-    }
-
-    res.status(200).json({ message: "Login successful" });
+    res.status(200).json(result.rows[0]);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "Database error" });
   }
-  next();
+};
+
+export const deleteUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { id } = req.params;
+  console.log(id);
+  try {
+    const result = await pool.query("DELETE FROM user WHERE id = $1", [id]);
+    console.log(result);
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    res.status(204).send();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Database error" });
+  }
 };

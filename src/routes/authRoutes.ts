@@ -1,8 +1,9 @@
 import express from "express";
 import {
   confirmEmail,
-  loginUser,
-  registerUser,
+  login,
+  logout,
+  register,
 } from "../controllers/authController";
 
 const router = express.Router();
@@ -30,55 +31,27 @@ const router = express.Router();
  *       500:
  *         description: Internal Server Error
  */
-router.post("/register", registerUser);
-
-/**
- * @swagger
- * /auth/login:
- *  post:
- *  summary: Login
- * description: Login with email and password
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * properties:
- * email:
- * type: string
- * password:
- * type: string
- * responses:
- * 200:
- * description: Login successful
- * 400:
- * description: Invalid credentials
- * 403:
- * description: Please verify your email first
- * 500:
- * description: Internal Server Error
- */
+router.post("/register", register);
 
 /**
  * @swagger
  * /auth/confirm-email:
- *  get:
- *   summary: Confirm email
- *  description: Confirm email address
- * parameters:
- *  - in: query
- *   name: token
- *  required: true
- * schema:
- * type: string
- * responses:
- * 200:
- * description: Email verified successfully
- * 400:
- * description: Invalid token or user does not exist
- * 500:
- * description: Internal Server Error
+ *   get:
+ *     summary: Confirm email
+ *     description: Confirm email address
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *       400:
+ *         description: Invalid token or user does not exist
+ *       500:
+ *         description: Internal Server Error
  */
 router.get("/confirm-email", confirmEmail);
 
@@ -111,22 +84,20 @@ router.get("/confirm-email", confirmEmail);
  *       500:
  *         description: Internal Server Error
  */
-router.post("/login", loginUser);
+router.post("/login", login);
 
 /**
  * @swagger
  * /auth/logout:
- *  post:
- *  summary: Logout
- * description: Logout user
- * responses:
- * 200:
- * description: Logout successful
- *  500:
- * description: Internal Server Error
- * */
-router.post("/logout", (req, res) => {
-  res.status(200).json({ message: "Logout successful" });
-});
+ *   post:
+ *     summary: Logout
+ *     description: Logout user
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *       500:
+ *         description: Internal Server Error
+ */
+router.get("/logout", logout);
 
 export default router;
