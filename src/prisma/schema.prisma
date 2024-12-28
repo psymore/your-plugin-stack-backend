@@ -49,7 +49,6 @@ model StackPlugins {
     plugin   Plugin @relation(fields: [pluginId], references: [id])
     position Int // Optional: Keeps track of order of plugins in the stack
 
-    @@unique([stackId, pluginId, position]) // Allows a plugin to appear multiple times in the same stack
     @@map("stack_plugins")
     @@schema(map: "public")
 }

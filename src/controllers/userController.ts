@@ -1,7 +1,6 @@
 import bcrypt from "bcrypt";
-import crypto from "crypto";
-import { NextFunction, Request, Response } from "express";
-import pool from "../config/db";
+import { Request, Response } from "express";
+import { prisma } from "../prisma";
 
 // Get all users
 export const getAllUsers = async (
@@ -9,9 +8,8 @@ export const getAllUsers = async (
   res: Response
 ): Promise<void> => {
   try {
-    const result = await pool.query("SELECT * FROM user");
-    console.log("GET /users", result);
-    res.status(200).json(result.rows);
+    const allUsers = await prisma.user.findMany();
+    res.status(200).json({ message: "All users list:", allUsers });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Database error" });
@@ -23,13 +21,16 @@ export const createUser = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { name, email } = req.body;
+  const { name, email, password } = req.body;
   try {
-    const result = await pool.query(
-      "INSERT INTO user (name, email) VALUES ($1, $2) RETURNING *",
-      [name, email]
-    );
-    res.status(201).json(result.rows[0]);
+    const result = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: await bcrypt.hash(password, 10),
+      },
+    });
+    res.status(201).json({ message: "User created", result });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Database error" });
@@ -42,12 +43,17 @@ export const getUserById = async (
 ): Promise<void> => {
   const { id } = req.params;
   try {
-    const result = await pool.query("SELECT * FROM user WHERE id = $1", [id]);
-    if (result.rows.length === 0) {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: parseInt(id),
+      },
+    });
+
+    if (user === null) {
       res.status(404).json({ error: "User not found" });
       return;
     }
-    res.status(200).json(result.rows[0]);
+    res.status(200).json({ message: "Get user:", user });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Database error" });
@@ -61,13 +67,18 @@ export const deleteUser = async (
   const { id } = req.params;
   console.log(id);
   try {
-    const result = await pool.query("DELETE FROM user WHERE id = $1", [id]);
+    const result = await prisma.user.delete({
+      where: {
+        id: parseInt(id),
+      },
+    });
+
     console.log(result);
-    if (result.rowCount === 0) {
+    if (result === null) {
       res.status(404).json({ error: "User not found" });
       return;
     }
-    res.status(204).send();
+    res.status(204).send(`User with ID ${id} successfully deleted`);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Database error" });

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../config/db";
+import { prisma } from "../prisma";
 
 // Get all plugins
 export const getAllPlugins = async (req: Request, res: Response) => {
@@ -28,15 +29,27 @@ export const getPlugin = async (req: Request, res: Response) => {
   }
 };
 
-// Create a new plugin
-export const createPlugin = async (req: Request, res: Response) => {
-  const { plugin_name } = req.body;
+// Create one or more plugins
+export const addPlugins = async (req: Request, res: Response) => {
+  const { pluginNames } = req.body; // Expect an array of plugin names
+  console.log("pluginNames", pluginNames);
+
+  if (!Array.isArray(pluginNames) || pluginNames.length === 0) {
+    res.status(400).json({ error: "Please provide an array of plugin names." });
+    return;
+  }
+
   try {
-    const result = await pool.query(
-      "INSERT INTO plugin (plugin_name) VALUES ($1) RETURNING *",
-      [plugin_name]
-    );
-    res.status(201).json(result.rows[0]);
+    // Use createMany to insert multiple plugins at once
+    const plugins = await prisma.plugin.createMany({
+      data: pluginNames.map(name => ({ pluginName: name })),
+    });
+
+    res.status(201).json({
+      message: `${
+        plugins.count
+      } plugin(s) successfully added, which are: ${pluginNames.join(", ")}`,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Database error" });
@@ -46,11 +59,11 @@ export const createPlugin = async (req: Request, res: Response) => {
 // Update a plugin by ID
 export const updatePlugin = async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
-  const { plugin_name } = req.body;
+  const { pluginName } = req.body;
   try {
     const result = await pool.query(
-      "UPDATE plugin SET plugin_name = $1 WHERE id = $2 RETURNING *",
-      [plugin_name, id]
+      "UPDATE plugin SET pluginName = $1 WHERE id = $2 RETURNING *",
+      [pluginName, id]
     );
     if (result.rowCount === 0) {
       res.status(404).json({ error: "Plugin not found" });
@@ -67,8 +80,13 @@ export const updatePlugin = async (req: Request, res: Response) => {
 export const deletePlugin = async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   try {
-    const result = await pool.query("DELETE FROM plugin WHERE id = $1", [id]);
-    if (result.rowCount === 0) {
+    const plugin = await prisma.plugin.delete({
+      where: {
+        id,
+      },
+    });
+
+    if (plugin === null) {
       res.status(404).json({ error: "Plugin not found" });
     } else {
       res.status(204).json();

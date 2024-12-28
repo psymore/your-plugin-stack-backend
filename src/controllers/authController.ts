@@ -115,19 +115,19 @@ export const login = async (
 
   try {
     // Fetch user from the database
-    const result = await pool.query("SELECT * FROM user WHERE email = $1", [
-      email,
-    ]);
+    const isUserRegistered = await prisma.user.findUnique({
+      where: { email: email },
+    });
 
-    if (result.rows.length === 0) {
+    if (!isUserRegistered) {
       res.status(404).json({ error: "User not found" });
       return;
     }
 
-    const user = result.rows[0];
+    const user = isUserRegistered;
 
     // Check if the email is verified
-    if (!user.is_verified) {
+    if (!user?.is_verified) {
       res.status(403).json({ error: "Please verify your email first" });
       return;
     }
@@ -140,11 +140,22 @@ export const login = async (
       return;
     }
 
+    // Check if the user is already logged in by checking if their token exists in Redis
+    const existingToken = await redisClient.get(user.id.toString());
+
+    if (existingToken) {
+      res.status(400).json({ message: "User is already logged in" });
+      return;
+    }
+
     // Generate JWT
     const token = generateJWT({ userId: user.id });
 
     // Store the token in Redis with an expiry (optional)
     await redisClient.set(token, user.id, { EX: 3600 }); // 1 hour expiration
+
+    // Also store the user id with the token in Redis for checking later
+    await redisClient.set(user.id.toString(), token, { EX: 3600 }); // 1 hour expiration for user session
 
     // Set the JWT in HttpOnly cookie
     const cookie = serialize("auth-token", token, {

@@ -1,10 +1,10 @@
 import express from "express";
 import {
+  addPlugins,
+  deletePlugin,
   getAllPlugins,
   getPlugin,
-  createPlugin,
   updatePlugin,
-  deletePlugin,
 } from "../controllers/pluginController";
 
 const router = express.Router();
@@ -54,7 +54,7 @@ router.get("/:id", getPlugin);
  *       201:
  *         description: Created
  */
-router.post("/", createPlugin);
+router.post("/addPlugins", addPlugins);
 
 /**
  * @swagger
