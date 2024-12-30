@@ -1,5 +1,4 @@
-// Interface for User
-export interface User {
+export interface Auth {
   id: number;
   email: string;
   password: string; // Assuming password is stored as a hashed string
@@ -7,12 +6,12 @@ export interface User {
   verification_token: string;
 }
 
-export interface UserInput {
+export interface AuthInput {
   email: string;
   password: string;
 }
 
-export interface UserOutput {
+export interface AuthOutput {
   id: number;
   email: string;
   is_verified: boolean;

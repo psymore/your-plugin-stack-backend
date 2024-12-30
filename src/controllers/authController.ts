@@ -8,6 +8,7 @@ import redisClient from "../config/redisClient";
 import { decodedJWT, generateJWT, hashPassword } from "../services/authService";
 import { sendConfirmationEmail } from "../services/mailerService";
 import { prisma } from "../prisma";
+import { AuthInput } from "../models/auth-model";
 
 // Register User
 export const register = async (
@@ -111,7 +112,7 @@ export const login = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const { email, password }: { email: string; password: string } = req.body;
+  const { email, password }: AuthInput = req.body;
 
   try {
     // Fetch user from the database
