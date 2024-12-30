@@ -8,6 +8,9 @@
     "start": "nodemon src/index.ts",
     "dev": "nodemon --watch src --exec ts-node src/index.ts"
   },
+  "prisma": {
+    "schema": "./src/prisma/schema.prisma"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

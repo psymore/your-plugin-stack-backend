@@ -3,12 +3,11 @@ import { serialize } from "cookie";
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
-import pool from "../config/db";
 import redisClient from "../config/redisClient";
+import { Auth, AuthInput } from "../models/auth-model";
+import { prisma } from "../prisma";
 import { decodedJWT, generateJWT, hashPassword } from "../services/authService";
 import { sendConfirmationEmail } from "../services/mailerService";
-import { prisma } from "../prisma";
-import { AuthInput } from "../models/auth-model";
 
 // Register User
 export const register = async (
@@ -16,7 +15,7 @@ export const register = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const { name, email, password } = req.body;
+  const { name, email, password }: AuthInput = req.body;
 
   try {
     // Check if the user already exists
@@ -85,7 +84,7 @@ export const confirmEmail = async (
     const { name, email, password } = JSON.parse(userData);
 
     // Insert the user into the database with `is_verified = true`
-    const newUser = await prisma.user.create({
+    const newUser: Auth = await prisma.user.create({
       data: {
         name: "name",
         email,

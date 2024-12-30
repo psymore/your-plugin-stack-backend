@@ -1,12 +1,12 @@
 export interface Auth {
-  id: number;
+  name?: string;
   email: string;
   password: string; // Assuming password is stored as a hashed string
   is_verified: boolean;
-  verification_token: string;
 }
 
 export interface AuthInput {
+  name?: string;
   email: string;
   password: string;
 }

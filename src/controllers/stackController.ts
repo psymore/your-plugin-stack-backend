@@ -8,10 +8,16 @@ export const createStack = async (
 ): Promise<void> => {
   const { stackInfo }: { stackInfo: IStack } = req.body;
 
+  if (!stackInfo || !stackInfo.userId || !stackInfo.name || !stackInfo.type) {
+    res.status(400).json({ error: "Missing required fields" });
+    return;
+  }
+
   try {
     const stack = await prisma.stack.create({
       data: {
-        ...stackInfo, // Spread stackInfo but ensure it includes all required fields
+        name: stackInfo.name,
+        type: stackInfo.type,
         user: {
           connect: {
             id: stackInfo.userId, // Assuming userId is passed in the request and exists in IStack
