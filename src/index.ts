@@ -6,6 +6,7 @@ import { swaggerDocs } from "./docs/swaggerConfig";
 import { default as authRoutes } from "./routes/authRoutes";
 import { default as pluginRoutes } from "./routes/pluginRoutes";
 import { default as userRoutes } from "./routes/userRoutes";
+import { default as stackRoutes } from "./routes/stackRoutes";
 import cookieParser from "cookie-parser";
 
 dotenv.config();
@@ -28,9 +29,14 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 // Register routes
 app.use("/auth", authRoutes);
 
-//User and plugin routes
+//User routes
 app.use("/user", userRoutes);
+
+//Plugin routes
 app.use("/plugins", pluginRoutes);
+
+// Stack routes
+app.use("/stack", stackRoutes);
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);

@@ -13,6 +13,13 @@ export const createStack = async (
     return;
   }
 
+  const userId = req.headers["user-id"] as string;
+
+  if (!userId) {
+    res.status(400).json({ error: "Missing user ID in headers" });
+    return;
+  }
+
   try {
     const stack = await prisma.stack.create({
       data: {
@@ -20,7 +27,7 @@ export const createStack = async (
         type: stackInfo.type,
         user: {
           connect: {
-            id: stackInfo.userId, // Assuming userId is passed in the request and exists in IStack
+            id: parseInt(userId, 10),
           },
         },
       },

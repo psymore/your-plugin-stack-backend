@@ -1,10 +1,10 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import redisClient from "../config/redisClient";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
-export const authenticateJWT = async (
+export const authMiddleware = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -27,7 +27,7 @@ export const authenticateJWT = async (
 
     // Verify token
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    (req as any).user = decoded; // Attach the decoded JWT payload to req.user
+    (req as any).userId = (decoded as { userId: string }).userId; // Attach userId to req
 
     next(); // Continue to the next middleware or route handler
   } catch (error) {
