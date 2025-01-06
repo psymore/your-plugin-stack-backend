@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  checkSession,
   confirmEmail,
   login,
   logout,
@@ -99,5 +100,21 @@ router.post("/login", login);
  *         description: Internal Server Error
  */
 router.get("/logout", logout);
+
+/**
+ * @swagger
+ * /auth/check-session:
+ *  get:
+ *    summary: Check session
+ *    description: Check if the user is logged in
+ *    responses:
+ *      200:
+ *        description: User is logged in
+ *      401:
+ *        description: User is not logged in
+ *      500:
+ *        description: Internal Server Error
+ */
+router.get("/check-session", checkSession);
 
 export default router;

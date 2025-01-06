@@ -143,8 +143,15 @@ export const login = async (
     // Check if the user is already logged in by checking if their token exists in Redis
     const existingToken = await redisClient.get(user.id.toString());
 
+    // if (existingToken) {
+    //   res.status(400).json({ message: "User is already logged in" });
+    //   return;
+    // }
     if (existingToken) {
-      res.status(400).json({ message: "User is already logged in" });
+      // User is already logged in, return the existing token instead of creating a new one
+      res
+        .status(200)
+        .json({ message: "User is already logged in", token: existingToken });
       return;
     }
 
@@ -180,7 +187,8 @@ export const login = async (
 
 // Logout
 export const logout = async (req: Request, res: Response): Promise<void> => {
-  const token = req.cookies["auth-token"]; // Get token from cookies
+  const token =
+    req.cookies?.["auth-token"] || req.headers.authorization?.split(" ")[1];
 
   if (!token) {
     res.status(401).json({ error: "No token provided" });
@@ -189,16 +197,21 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
 
   try {
     // Blacklist the token by storing it in Redis with a short expiry
-    await redisClient.set(token, "blacklisted", { EX: 3600 }); // 1 hour expiration
+    await redisClient.set(token, "blacklisted", { EX: 3600 }); // Blacklist for 1 hour
 
-    // Clear the cookie
+    // Remove the user session from Redis
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
+    const { userId } = decoded as jwt.JwtPayload & { userId: string };
+    await redisClient.del(userId.toString());
+
+    // Clear the auth-token cookie
     res.setHeader(
       "Set-Cookie",
       serialize("auth-token", "", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        maxAge: 0, // Expire immediately
         sameSite: "strict",
+        maxAge: -1, // Immediately expire the cookie
         path: "/",
       })
     );
@@ -206,6 +219,25 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
     res.status(200).json({ message: "Logout successful" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "Logout failed" });
+  }
+};
+
+// Check Session
+export const checkSession = (req: Request, res: Response): void => {
+  const token = req.cookies["auth-token"];
+
+  if (!token) {
+    res.status(401).json({ error: "No session found" });
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
+    const { userId } = decoded as jwt.JwtPayload & { userId: string };
+
+    res.status(200).json({ userId });
+  } catch (error) {
+    res.status(401).json({ error: "Invalid session" });
   }
 };
