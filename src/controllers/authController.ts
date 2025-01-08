@@ -142,11 +142,6 @@ export const login = async (
 
     // Check if the user is already logged in by checking if their token exists in Redis
     const existingToken = await redisClient.get(user.id.toString());
-
-    // if (existingToken) {
-    //   res.status(400).json({ message: "User is already logged in" });
-    //   return;
-    // }
     if (existingToken) {
       // User is already logged in, return the existing token instead of creating a new one
       res
@@ -176,7 +171,7 @@ export const login = async (
     res.setHeader("Set-Cookie", cookie);
 
     // Respond with success message
-    res.status(200).json({ message: "Login successful" });
+    res.status(200).json({ message: "Login successful", token: token });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -216,28 +211,9 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
       })
     );
 
-    res.status(200).json({ message: "Logout successful" });
+    res.status(200).json({ message: "Logout successful", ok: true });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Logout failed" });
-  }
-};
-
-// Check Session
-export const checkSession = (req: Request, res: Response): void => {
-  const token = req.cookies["auth-token"];
-
-  if (!token) {
-    res.status(401).json({ error: "No session found" });
-    return;
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
-    const { userId } = decoded as jwt.JwtPayload & { userId: string };
-
-    res.status(200).json({ userId });
-  } catch (error) {
-    res.status(401).json({ error: "Invalid session" });
   }
 };
